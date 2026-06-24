@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0a0f1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PEP" />
+  <title>PEP Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #0a0f1a; color: #e2e8f0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'DM Mono', monospace; overscroll-behavior: none; }
+    #root { min-height: 100vh; }
+    button { font-family: inherit; }
+    /* Loading splash while Babel transpiles */
+    .boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div id="root"><div class="boot">Loading PEP Tracker…</div></div>
+
+  <!-- React + Babel standalone (in-browser JSX transform — fine for a test PWA).
+       Versions are PINNED on purpose. Babel 8 (which the unpinned "latest" tag now serves)
+       flips @babel/preset-react's default JSX runtime to "automatic", emitting bare
+       `import ... from "react/jsx-runtime"` statements that crash a global-React page with
+       "Cannot use import statement outside a module" — leaving the app stuck on the loading
+       splash. 7.26.4 defaults to the classic runtime (React.createElement). Do NOT un-pin. -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const SECTIONS = [
+      {
+        id: "warmup",
+        label: "Section I",
+        title: "Warm-up",
+        color: "#4ADE80",
+        duration: 90,
+        exercises: [
+          { id: "jog", label: "A. Jog line to line", duration: 30, cue: "Slow jog, hip/knee/ankle aligned" },
+          { id: "shuttle", label: "B. Shuttle Run", duration: 30, cue: "Athletic stance, lead right, sidestep. Switch at half-field" },
+          { id: "backward", label: "C. Backward Running", duration: 30, cue: "On toes, slight knee bend, no knee locking" },
+        ],
+      },
+      {
+        id: "strength",
+        label: "Section II",
+        title: "Strengthening",
+        color: "#60A5FA",
+        duration: 180,
+        exercises: [
+          { id: "lunges", label: "A. Walking Lunges", duration: 60, cue: "Knee over ankle, don't let it cave inward" },
+          { id: "bridge", label: "B. 1-leg Bridge ⚠️", duration: 60, cue: "Drive through heel, hips up, squeeze glutes, alternate sides" },
+          { id: "toeRaises", label: "C. Single Toe Raises", duration: 60, cue: "30 reps each side, balance on one foot" },
+        ],
+      },
+      {
+        id: "plyo",
+        label: "Section III",
+        title: "Plyometrics",
+        color: "#F59E0B",
+        duration: 150,
+        exercises: [
+          { id: "lateralHops", label: "A. Lateral Hops ⚠️ 2-LEG", duration: 30, cue: "Soft landing, balls of feet, knees bent — BOTH FEET ONLY" },
+          { id: "fwdHops", label: "B. Forward/Backward Hops", duration: 30, cue: "Slight knee bend, don't snap straight" },
+          { id: "singleHops", label: "C. Single Leg Hops", duration: 30, cue: "Progress only when 2-leg is solid" },
+          { id: "vertJumps", label: "D. Vertical Jumps", duration: 30, cue: "Straight up, soft landing on balls of feet" },
+          { id: "scissors", label: "E. Scissors Jump", duration: 30, cue: "Lunge → switch legs mid-air. Knee over ankle. 20 reps" },
+        ],
+      },
+      {
+        id: "agility",
+        label: "Section IV",
+        title: "Agilities",
+        color: "#C084FC",
+        duration: 180,
+        exercises: [
+          { id: "fwdRun", label: "A. Forward Run + 3-step stop", duration: 60, cue: "Sprint, 3-step quick stop. Knee not over toe" },
+          { id: "lateralDiag", label: "B. Lateral Diagonal Runs", duration: 60, cue: "3 passes, face forward, pivot off outside foot. No knock-knees" },
+          { id: "highKnees", label: "C. High Knees / Butt Kicks ⚠️", duration: 60, cue: "Knees to chest, then heels to glutes — 44 yds" },
+        ],
+      },
+      {
+        id: "stretch",
+        label: "Section V",
+        title: "Stretching",
+        color: "#F472B6",
+        duration: 300,
+        exercises: [
+          { id: "calf", label: "A. Calf Stretch", duration: 60, cue: "30 sec × 2 each side. V formation, back leg flat" },
+          { id: "quad", label: "B. Quadricep Stretch", duration: 60, cue: "30 sec × 2 each side. Heel to glute, knee down" },
+          { id: "hamstring", label: "C. Figure-Four Hamstring", duration: 60, cue: "30 sec × 2 each side. Chest toward knee" },
+          { id: "innerThigh", label: "D. Inner Thigh Stretch", duration: 60, cue: "20 sec × 3 reps. Legs spread, lean forward" },
+          { id: "hipFlex", label: "E. Hip Flexor Stretch", duration: 60, cue: "30 sec × 2 each side. Hips square, lean forward" },
+        ],
+      },
+    ];
+
+    const RUN_BREAK = { id: "run", label: "🏃 RUN", title: "Your Run", color: "#34D399", isRun: true };
+    const ALL_STEPS = [
+      ...SECTIONS.slice(0, 4).map((s) => ({ ...s, isSection: true })),
+      RUN_BREAK,
+      { ...SECTIONS[4], isSection: true },
+    ];
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${m}:${sec.toString().padStart(2, "0")}`;
+    }
+
+    function CircleTimer({ progress, color, size = 120, strokeWidth = 8 }) {
+      const r = (size - strokeWidth) / 2;
+      const circ = 2 * Math.PI * r;
+      const offset = circ * (1 - progress);
+      return (
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1e293b" strokeWidth={strokeWidth} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+            stroke={color} strokeWidth={strokeWidth}
+            strokeDasharray={circ} strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 0.5s linear" }} />
+        </svg>
+      );
+    }
+
+    function PEPTracker() {
+      const [phase, setPhase] = useState("intro");
+      const [stepIdx, setStepIdx] = useState(0);
+      const [exIdx, setExIdx] = useState(0);
+      const [timeLeft, setTimeLeft] = useState(null);
+      const [running, setRunning] = useState(false);
+      const [checked, setChecked] = useState({});
+      const [pain, setPain] = useState({ during: null, nextAm: null });
+      const [runInfo, setRunInfo] = useState({ distance: "", time: "" });
+      const [notes, setNotes] = useState("");
+      const [soundOn, setSoundOn] = useState(true);
+      const [vibrateOn, setVibrateOn] = useState(true);
+      const [notifyOn, setNotifyOn] = useState(true);
+      const intervalRef = useRef(null);
+      const audioCtxRef = useRef(null);
+      const wakeLockRef = useRef(null);
+
+      const currentStep = ALL_STEPS[stepIdx];
+      const currentEx = currentStep?.isSection && !currentStep?.isRun ? currentStep.exercises[exIdx] : null;
+
+      const ensureAudio = useCallback(() => {
+        try {
+          if (!audioCtxRef.current) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx) audioCtxRef.current = new Ctx();
+          }
+          if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume();
+        } catch {}
+      }, []);
+
+      const acquireWakeLock = useCallback(async () => {
+        try {
+          if ("wakeLock" in navigator && !wakeLockRef.current) {
+            wakeLockRef.current = await navigator.wakeLock.request("screen");
+            wakeLockRef.current.addEventListener("release", () => { wakeLockRef.current = null; });
+          }
+        } catch {}
+      }, []);
+
+      const releaseWakeLock = useCallback(() => {
+        try { wakeLockRef.current?.release(); } catch {}
+        wakeLockRef.current = null;
+      }, []);
+
+      const requestNotifPermission = useCallback(async () => {
+        try {
+          if (typeof Notification === "undefined") return;
+          if (Notification.permission === "default") {
+            await Notification.requestPermission();
+          }
+        } catch {}
+      }, []);
+
+      const fireWatchNotification = useCallback(() => {
+        if (!notifyOn) return;
+        try {
+          if (typeof Notification === "undefined") return;
+          if (Notification.permission !== "granted") return;
+          // Prefer service-worker registration on iOS — it's the path that
+          // actually buzzes the watch reliably.
+          if (navigator.serviceWorker?.ready) {
+            navigator.serviceWorker.ready.then((reg) => {
+              try {
+                reg.showNotification("PEP — time's up", {
+                  body: "Tap Done → for the next exercise",
+                  tag: "pep-timer",
+                  icon: "icon-192.png",
+                  badge: "icon-192.png",
+                  silent: false,
+                  vibrate: [300, 120, 300],
+                });
+              } catch {
+                new Notification("PEP — time's up", { body: "Tap Done →", tag: "pep-timer" });
+              }
+            });
+          } else {
+            new Notification("PEP — time's up", { body: "Tap Done →", tag: "pep-timer" });
+          }
+        } catch {}
+      }, [notifyOn]);
+
+      useEffect(() => {
+        const onVis = () => {
+          if (document.visibilityState === "visible" && phase === "session") acquireWakeLock();
+        };
+        document.addEventListener("visibilitychange", onVis);
+        return () => document.removeEventListener("visibilitychange", onVis);
+      }, [phase, acquireWakeLock]);
+
+      useEffect(() => () => releaseWakeLock(), [releaseWakeLock]);
+
+      const fireAlert = useCallback(() => {
+        fireWatchNotification();
+        if (vibrateOn && typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate([300, 120, 300, 120, 500]);
+        }
+        if (!soundOn) return;
+        try {
+          ensureAudio();
+          const ctx = audioCtxRef.current;
+          if (!ctx) return;
+          const tones = [660, 880, 1320];
+          tones.forEach((freq, i) => {
+            const t0 = ctx.currentTime + i * 0.18;
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.type = "sine";
+            o.frequency.value = freq;
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+            o.start(t0); o.stop(t0 + 0.18);
+          });
+        } catch {}
+      }, [soundOn, vibrateOn, ensureAudio, fireWatchNotification]);
+
+      useEffect(() => {
+        if (!running || timeLeft === null) return;
+        intervalRef.current = setInterval(() => {
+          setTimeLeft((t) => {
+            if (t <= 1) {
+              fireAlert();
+              clearInterval(intervalRef.current);
+              setRunning(false);
+              return 0;
+            }
+            return t - 1;
+          });
+        }, 1000);
+        return () => clearInterval(intervalRef.current);
+      }, [running, fireAlert]);
+
+      const startTimer = (duration) => {
+        clearInterval(intervalRef.current);
+        ensureAudio();
+        acquireWakeLock();
+        setTimeLeft(duration);
+        setRunning(true);
+      };
+
+      const toggleTimer = () => {
+        if (timeLeft === 0) {
+          const dur = currentEx ? currentEx.duration : null;
+          if (dur) startTimer(dur);
+        } else {
+          setRunning((r) => !r);
+        }
+      };
+
+      const markDone = (id) => setChecked((c) => ({ ...c, [id]: !c[id] }));
+
+      const nextEx = () => {
+        if (!currentStep.isSection) return;
+        if (exIdx < currentStep.exercises.length - 1) {
+          const next = currentStep.exercises[exIdx + 1];
+          setExIdx(exIdx + 1);
+          startTimer(next.duration);
+        } else {
+          nextStep();
+        }
+      };
+
+      const nextStep = () => {
+        if (stepIdx < ALL_STEPS.length - 1) {
+          const next = ALL_STEPS[stepIdx + 1];
+          setStepIdx(stepIdx + 1);
+          setExIdx(0);
+          if (next.isSection && !next.isRun && next.exercises[0]) {
+            startTimer(next.exercises[0].duration);
+          } else {
+            setTimeLeft(null);
+            setRunning(false);
+          }
+        } else {
+          setPhase("done");
+          setRunning(false);
+          releaseWakeLock();
+        }
+      };
+
+      const prevStep = () => {
+        if (exIdx > 0) {
+          setExIdx(exIdx - 1);
+          setRunning(false);
+          setTimeLeft(currentStep.exercises[exIdx - 1].duration);
+        } else if (stepIdx > 0) {
+          const prev = ALL_STEPS[stepIdx - 1];
+          setStepIdx(stepIdx - 1);
+          if (prev.isSection && prev.exercises) {
+            const lastEx = prev.exercises[prev.exercises.length - 1];
+            setExIdx(prev.exercises.length - 1);
+            setTimeLeft(lastEx.duration);
+          }
+          setRunning(false);
+        }
+      };
+
+      const startSession = () => {
+        requestNotifPermission();
+        setPhase("session");
+        const firstEx = ALL_STEPS[0].exercises[0];
+        startTimer(firstEx.duration);
+      };
+
+      const progress = timeLeft !== null && currentEx ? 1 - timeLeft / currentEx.duration : 0;
+      const totalChecked = Object.values(checked).filter(Boolean).length;
+      const totalExercises = SECTIONS.reduce((a, s) => a + s.exercises.length, 0);
+
+      const s = {
+        app: {
+          minHeight: "100vh", background: "#0a0f1a",
+          fontFamily: "'DM Mono', monospace", color: "#e2e8f0",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          // Respect Dynamic Island / notch / home indicator on iPhone 17 Pro Max etc.
+          paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "max(16px, env(safe-area-inset-left))",
+          paddingRight: "max(16px, env(safe-area-inset-right))",
+          paddingBottom: "max(40px, env(safe-area-inset-bottom))",
+        },
+        header: { width: "100%", maxWidth: 520, padding: "24px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+        logo: { fontSize: 13, letterSpacing: "0.15em", color: "#64748b", textTransform: "uppercase" },
+        badge: { fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "#1e293b", color: "#94a3b8", letterSpacing: "0.1em" },
+        card: { width: "100%", maxWidth: 520, background: "#111827", borderRadius: 20, padding: 24, marginTop: 16, border: "1px solid #1e293b" },
+        sectionPill: (color) => ({ display: "inline-flex", alignItems: "center", gap: 6, background: color + "22", border: `1px solid ${color}55`, borderRadius: 20, padding: "4px 12px", fontSize: 11, color, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }),
+        bigTitle: { fontSize: 22, fontWeight: 700, color: "#f1f5f9", marginBottom: 4, lineHeight: 1.2 },
+        cue: { fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 20 },
+        timerWrap: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, margin: "16px 0" },
+        timerNum: { fontSize: 44, fontWeight: 700, letterSpacing: "-2px", color: "#f1f5f9", fontVariantNumeric: "tabular-nums" },
+        timerLabel: { fontSize: 11, color: "#475569", letterSpacing: "0.1em", textTransform: "uppercase" },
+        btnRow: { display: "flex", gap: 10, marginTop: 8 },
+        btn: (color, outline) => ({ flex: 1, padding: "12px 0", borderRadius: 12, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, letterSpacing: "0.05em", cursor: "pointer", border: outline ? `1.5px solid ${color}55` : "none", background: outline ? "transparent" : color, color: outline ? color : "#0a0f1a", transition: "opacity 0.15s" }),
+        exList: { listStyle: "none", padding: 0, margin: "16px 0 0", display: "flex", flexDirection: "column", gap: 6 },
+        exItem: (active, done, color) => ({ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: active ? color + "18" : done ? "#0f172a" : "#0f172a", border: `1px solid ${active ? color + "55" : done ? "#1e293b" : "#1e293b"}`, fontSize: 13, color: active ? "#f1f5f9" : done ? "#475569" : "#94a3b8", cursor: "pointer", transition: "all 0.15s" }),
+        dot: (active, done, color) => ({ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: active ? color : done ? "#1e293b" : "#1e293b", border: `2px solid ${active ? color : done ? "#334155" : "#334155"}` }),
+        progressBar: { width: "100%", height: 3, background: "#1e293b", borderRadius: 99, margin: "20px 0 0", overflow: "hidden" },
+        progressFill: (pct, color) => ({ height: "100%", width: `${pct}%`, background: color, borderRadius: 99, transition: "width 0.4s ease" }),
+        stepDots: { display: "flex", gap: 5, justifyContent: "center", marginTop: 16 },
+        stepDot: (active, done) => ({ width: active ? 20 : 6, height: 6, borderRadius: 99, background: done ? "#4ADE80" : active ? "#60A5FA" : "#1e293b", transition: "all 0.3s ease" }),
+        input: { width: "100%", background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: "10px 14px", color: "#e2e8f0", fontFamily: "'DM Mono', monospace", fontSize: 13, outline: "none", boxSizing: "border-box" },
+        label: { fontSize: 11, color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6, display: "block" },
+        painGrid: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 16 },
+        painBtn: (sel) => ({ padding: "8px 0", borderRadius: 8, border: `1.5px solid ${sel ? "#60A5FA" : "#1e293b"}`, background: sel ? "#60A5FA22" : "#0f172a", color: sel ? "#60A5FA" : "#64748b", cursor: "pointer", fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600 }),
+      };
+
+      if (phase === "intro") return (
+        <div style={s.app}>
+          <div style={s.header}>
+            <span style={s.logo}>PEP Tracker</span>
+            <span style={s.badge}>Achilles Rehab</span>
+          </div>
+          <div style={{ ...s.card, textAlign: "center", padding: "40px 24px" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🏃</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f5f9", marginBottom: 8 }}>PEP Running Warmup</div>
+            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.7, marginBottom: 24 }}>
+              5 sections · ~15–20 min · Guided timers
+            </div>
+            <div style={{ background: "#f59e0b18", border: "1px solid #f59e0b44", borderRadius: 12, padding: 14, marginBottom: 12, textAlign: "left", fontSize: 12, color: "#fbbf24", lineHeight: 1.7 }}>
+              ⚠️ Pain must stay ≤ 2–3/10 · All plyometrics = 2 LEGS ONLY · Soft landings always
+            </div>
+            <div style={{ background: "#60A5FA18", border: "1px solid #60A5FA44", borderRadius: 12, padding: 12, marginBottom: 24, textAlign: "left", fontSize: 11, color: "#93c5fd", lineHeight: 1.6 }}>
+              ⌚ For Apple Watch haptics: open this on iPhone Safari → Share → <em>Add to Home Screen</em>, then launch from the icon. Allow notifications on first run.
+            </div>
+            <div style={s.stepDots}>
+              {ALL_STEPS.map((step, i) => (
+                <div key={i} style={{ ...s.stepDot(false, false), background: step.color || "#4ADE80", opacity: 0.4 }} />
+              ))}
+            </div>
+            <div style={{ marginTop: 24 }}>
+              <button style={{ ...s.btn("#4ADE80", false), flex: "unset", width: "100%", padding: "16px 0", fontSize: 14 }} onClick={startSession}>
+                Start Session
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+
+      if (phase === "done") return (
+        <div style={s.app}>
+          <div style={s.header}>
+            <span style={s.logo}>PEP Tracker</span>
+            <span style={s.badge}>Session Complete</span>
+          </div>
+          <div style={s.card}>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#f1f5f9" }}>
+                {totalChecked}/{totalExercises} exercises done
+              </div>
+              <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>Note your pain & log this manually for now</div>
+            </div>
+
+            <label style={s.label}>Pain During Session (0–10)</label>
+            <div style={s.painGrid}>
+              {[0,1,2,3,4,5,6,7,8,9,10].slice(0,10).map(v => (
+                <button key={v} style={s.painBtn(pain.during === v)} onClick={() => setPain(p => ({ ...p, during: v }))}>{v}</button>
+              ))}
+              <button style={{ ...s.painBtn(pain.during === 10), gridColumn: "span 1" }} onClick={() => setPain(p => ({ ...p, during: 10 }))}>10</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+              <div>
+                <label style={s.label}>Run Distance (km)</label>
+                <input style={s.input} placeholder="e.g. 3.2" value={runInfo.distance} onChange={e => setRunInfo(r => ({ ...r, distance: e.target.value }))} />
+              </div>
+              <div>
+                <label style={s.label}>Run Time (min)</label>
+                <input style={s.input} placeholder="e.g. 20:00" value={runInfo.time} onChange={e => setRunInfo(r => ({ ...r, time: e.target.value }))} />
+              </div>
+            </div>
+
+            <label style={s.label}>Notes</label>
+            <textarea style={{ ...s.input, minHeight: 70, resize: "vertical", marginBottom: 20 }} placeholder="Any pain flares, modifications, how it felt…" value={notes} onChange={e => setNotes(e.target.value)} />
+
+            <div style={{ padding: 14, background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, color: "#94a3b8", fontSize: 12, lineHeight: 1.6 }}>
+              💾 This standalone PWA doesn't auto-log to Notion or Postgres yet. Copy the values above into your session log manually — or use the Umbrel build for automatic logging.
+            </div>
+          </div>
+        </div>
+      );
+
+      if (currentStep?.isRun) return (
+        <div style={s.app}>
+          <div style={s.header}>
+            <span style={s.logo}>PEP Tracker</span>
+            <span style={s.badge}>4 / 5 sections done</span>
+          </div>
+          <div style={{ ...s.card, textAlign: "center", padding: "40px 24px" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🏃</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f5f9", marginBottom: 8 }}>Go for your run</div>
+            <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.7, marginBottom: 28 }}>
+              Follow your physio's run plan.<br />
+              Come back when done for stretching.
+            </div>
+            <button style={{ ...s.btn("#34D399", false), flex: "unset", width: "100%", padding: "14px 0" }} onClick={nextStep}>
+              Done Running → Stretching
+            </button>
+            <div style={{ marginTop: 12 }}>
+              <button style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace" }} onClick={prevStep}>← Back</button>
+            </div>
+          </div>
+          <div style={s.stepDots}>
+            {ALL_STEPS.map((step, i) => <div key={i} style={s.stepDot(i === stepIdx, i < stepIdx)} />)}
+          </div>
+        </div>
+      );
+
+      const color = currentStep?.color || "#4ADE80";
+      const allExInStep = currentStep?.exercises || [];
+      return (
+        <div style={s.app}>
+          <div style={s.header}>
+            <span style={s.logo}>PEP Tracker</span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button
+                aria-label="Toggle sound"
+                onClick={() => {
+                  const next = !soundOn;
+                  setSoundOn(next);
+                  if (next) { ensureAudio(); fireAlert(); }
+                }}
+                style={{ ...s.badge, cursor: "pointer", border: "none", fontFamily: "'DM Mono', monospace", opacity: soundOn ? 1 : 0.4 }}
+              >{soundOn ? "🔔" : "🔕"}</button>
+              <button
+                aria-label="Toggle vibration"
+                onClick={() => {
+                  const next = !vibrateOn;
+                  setVibrateOn(next);
+                  if (next && navigator.vibrate) navigator.vibrate(150);
+                }}
+                style={{ ...s.badge, cursor: "pointer", border: "none", fontFamily: "'DM Mono', monospace", opacity: vibrateOn ? 1 : 0.4 }}
+              >📳</button>
+              <button
+                aria-label="Toggle watch notifications"
+                onClick={async () => {
+                  const next = !notifyOn;
+                  setNotifyOn(next);
+                  if (next) {
+                    await requestNotifPermission();
+                    fireWatchNotification();
+                  }
+                }}
+                style={{ ...s.badge, cursor: "pointer", border: "none", fontFamily: "'DM Mono', monospace", opacity: notifyOn ? 1 : 0.4 }}
+              >⌚</button>
+              <span style={s.badge}>{totalChecked}/{totalExercises}</span>
+            </div>
+          </div>
+
+          <div style={s.card}>
+            <div style={s.sectionPill(color)}>{currentStep.label} — {currentStep.title}</div>
+            <div style={s.bigTitle}>{currentEx?.label}</div>
+            <div style={s.cue}>{currentEx?.cue}</div>
+
+            <div style={s.timerWrap}>
+              <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                <CircleTimer progress={progress} color={color} size={140} strokeWidth={9} />
+                <div style={{ position: "absolute", textAlign: "center" }}>
+                  <div style={s.timerNum}>{timeLeft !== null ? formatTime(timeLeft) : formatTime(currentEx?.duration || 0)}</div>
+                  <div style={s.timerLabel}>{running ? "running" : timeLeft === 0 ? "done" : "paused"}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={s.btnRow}>
+              <button style={s.btn(color, true)} onClick={toggleTimer}>
+                {running ? "⏸ Pause" : timeLeft === 0 ? "↺ Reset" : "▶ Start"}
+              </button>
+              <button style={s.btn(color, false)} onClick={() => { markDone(currentEx?.id); nextEx(); }}>
+                Done →
+              </button>
+            </div>
+
+            <ul style={s.exList}>
+              {allExInStep.map((ex, i) => (
+                <li key={ex.id} style={s.exItem(i === exIdx, checked[ex.id], color)}
+                  onClick={() => { setExIdx(i); setRunning(false); setTimeLeft(ex.duration); }}>
+                  <div style={s.dot(i === exIdx, checked[ex.id], color)} />
+                  <span style={{ flex: 1 }}>{ex.label}</span>
+                  <span style={{ fontSize: 11, color: "#475569" }}>{formatTime(ex.duration)}</span>
+                  {checked[ex.id] && <span style={{ color: "#4ADE80", fontSize: 14 }}>✓</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div style={{ ...s.card, padding: "14px 20px" }}>
+            <div style={s.stepDots}>
+              {ALL_STEPS.map((step, i) => (
+                <div key={i} style={s.stepDot(i === stepIdx, i < stepIdx)} />
+              ))}
+            </div>
+            <div style={s.progressBar}>
+              <div style={s.progressFill((totalChecked / totalExercises) * 100, color)} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, maxWidth: 520, width: "100%", marginTop: 4 }}>
+            <button style={{ ...s.btn("#475569", true), fontSize: 12, padding: "10px 0" }} onClick={prevStep}>← Back</button>
+            <button style={{ ...s.btn("#475569", true), fontSize: 12, padding: "10px 0" }} onClick={nextStep}>Skip section →</button>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<PEPTracker />);
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
