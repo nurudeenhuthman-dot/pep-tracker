@@ -26,10 +26,15 @@
 <body>
   <div id="root"><div class="boot">Loading PEP Tracker…</div></div>
 
-  <!-- React + Babel standalone (in-browser JSX transform — fine for a test PWA) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- React + Babel standalone (in-browser JSX transform — fine for a test PWA).
+       Versions are PINNED on purpose. Babel 8 (which the unpinned "latest" tag now serves)
+       flips @babel/preset-react's default JSX runtime to "automatic", emitting bare
+       `import ... from "react/jsx-runtime"` statements that crash a global-React page with
+       "Cannot use import statement outside a module" — leaving the app stuck on the loading
+       splash. 7.26.4 defaults to the classic runtime (React.createElement). Do NOT un-pin. -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
 
   <script type="text/babel" data-presets="react">
     const { useState, useEffect, useRef, useCallback } = React;

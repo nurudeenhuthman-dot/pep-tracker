@@ -2,7 +2,7 @@
 // criteria so Notifications API is unlocked. It also caches the shell so
 // the page works offline once installed.
 
-const CACHE = 'pep-tracker-v1';
+const CACHE = 'pep-tracker-v2'; // bumped 2026-06-24: pinned Babel 7.26.4 fix (classic JSX runtime)
 const ASSETS = [
   './',
   './index.html',
